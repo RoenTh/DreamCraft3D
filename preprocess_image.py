@@ -12,6 +12,59 @@ import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image
 
+
+dependencies = ['torch', 'torchvision']
+try:
+  from mmcv.utils import Config, DictAction
+except:
+  from mmengine import Config, DictAction
+
+from mono.model.monodepth_model import get_configured_monodepth_model
+metric3d_dir = os.path.dirname(__file__)
+
+MODEL_TYPE = {
+  'ConvNeXt-Tiny': {
+    # TODO
+  },
+  'ConvNeXt-Large': {
+    'cfg_file': f'{metric3d_dir}/mono/configs/HourglassDecoder/convlarge.0.3_150.py',
+    'ckpt_file': 'https://huggingface.co/JUGGHM/Metric3D/resolve/main/convlarge_hourglass_0.3_150_step750k_v1.1.pth',
+  },
+  'ViT-Small': {
+    'cfg_file': f'{metric3d_dir}/mono/configs/HourglassDecoder/vit.raft5.small.py',
+    'ckpt_file': 'https://huggingface.co/JUGGHM/Metric3D/resolve/main/metric_depth_vit_small_800k.pth',
+  },
+  'ViT-Large': {
+    'cfg_file': f'{metric3d_dir}/mono/configs/HourglassDecoder/vit.raft5.large.py',
+    'ckpt_file': 'https://huggingface.co/JUGGHM/Metric3D/resolve/main/metric_depth_vit_large_800k.pth',
+  },
+  'ViT-giant2': {
+    'cfg_file': f'{metric3d_dir}/mono/configs/HourglassDecoder/vit.raft5.giant2.py',
+    'ckpt_file': 'https://huggingface.co/JUGGHM/Metric3D/resolve/main/metric_depth_vit_giant2_800k.pth',
+  },
+}
+
+def metric3d_vit_giant2(pretrain=False, **kwargs):
+  '''
+  Return a Metric3D model with ViT-Giant2 backbone and RAFT-8iter head.
+  For usage examples, refer to: https://github.com/YvanYin/Metric3D/blob/main/hubconf.py
+  Args:
+    pretrain (bool): whether to load pretrained weights.
+  Returns:
+    model (nn.Module): a Metric3D model.
+  '''
+  cfg_file = MODEL_TYPE['ViT-giant2']['cfg_file']
+  ckpt_file = MODEL_TYPE['ViT-giant2']['ckpt_file']
+
+  cfg = Config.fromfile(cfg_file)
+  model = get_configured_monodepth_model(cfg)
+  if pretrain:
+    model.load_state_dict(
+      torch.hub.load_state_dict_from_url(ckpt_file)['model_state_dict'], 
+      strict=False,
+    )
+  return model
+
 class BackgroundRemoval():
     def __init__(self, device='cuda'):
 
@@ -55,7 +108,44 @@ class BLIP2():
         generated_text = self.processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
 
         return generated_text
+        
+class Metric3D():
+    def __init__(self, task='depth', device='cuda'):
+        self.task = task
+        self.device = device
 
+        if task == 'depth':
+            self.model = torch.hub.load('YvanYin/Metric3D', 'Metric3D_depth')
+            self.aug = transforms.Compose([
+                transforms.Resize((384, 384)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=0.5, std=0.5)
+            ])
+        else: # normal
+            self.model = torch.hub.load('YvanYin/Metric3D', 'Metric3D_normal')
+            self.aug = transforms.Compose([
+                transforms.Resize((384, 384)),
+                transforms.ToTensor()
+            ])
+
+        self.model.eval().to(device)
+
+    @torch.no_grad()
+    def __call__(self, image):
+        H, W = image.shape[:2]
+        image = Image.fromarray(image)
+        image = self.aug(image).unsqueeze(0).to(self.device)
+
+        if self.task == 'depth':
+            depth = self.model(image).clamp(0, 1)
+            depth = F.interpolate(depth.unsqueeze(1), size=(H, W), mode='bicubic', align_corners=False)
+            depth = depth.squeeze(1).cpu().numpy()
+            return depth
+        else: # normal
+            normal = self.model(image).clamp(0, 1)
+            normal = F.interpolate(normal, size=(H, W), mode='bicubic', align_corners=False)
+            normal = normal.cpu().numpy()
+            return normal
 
 class DPT():
     def __init__(self, task='depth', device='cuda'):
@@ -146,7 +236,7 @@ def preprocess_single_image(img_path, args):
 
     # predict depth
     print(f'[INFO] depth estimation...')
-    dpt_depth_model = DPT(task='depth')
+    dpt_depth_model = Metric3D(task='depth')
     depth = dpt_depth_model(image)[0]
     depth[mask] = (depth[mask] - depth[mask].min()) / (depth[mask].max() - depth[mask].min() + 1e-9)
     depth[~mask] = 0

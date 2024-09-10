@@ -8,16 +8,16 @@ from diffusers import DiffusionPipeline, EulerAncestralDiscreteScheduler, Stable
 def load_model(superres):
     mv_model = DiffusionPipeline.from_pretrained(
         "sudo-ai/zero123plus-v1.1", custom_pipeline="sudo-ai/zero123plus-pipeline",
-        torch_dtype=torch.float16, cache_dir="load/checkpoints/huggingface/hub", local_files_only=True,
+        torch_dtype=torch.float16, cache_dir="load/checkpoints/huggingface/hub", local_files_only=False,
     )
     mv_model.scheduler = EulerAncestralDiscreteScheduler.from_config(
-        mv_model.scheduler.config, timestep_spacing='trailing', cache_dir="load/checkpoints/huggingface/hub", local_files_only=True,
+        mv_model.scheduler.config, timestep_spacing='trailing', cache_dir="load/checkpoints/huggingface/hub", local_files_only=False,
     )
 
     if superres:
         superres_model = StableDiffusionUpscalePipeline.from_pretrained(
             "stabilityai/stable-diffusion-x4-upscaler", revision="fp16",
-            torch_dtype=torch.float16, cache_dir="load/checkpoints/huggingface/hub", local_files_only=True,
+            torch_dtype=torch.float16, cache_dir="load/checkpoints/huggingface/hub", local_files_only=False,
         )
     else:
         superres_model = None

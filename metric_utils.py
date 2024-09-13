@@ -2,6 +2,8 @@
 # best open source clip so far: laion/CLIP-ViT-bigG-14-laion2B-39B-b160k
 # code adapted from NeuralLift-360
 
+
+
 import torch
 import torch.nn as nn
 import os
@@ -20,7 +22,7 @@ from PIL import Image
 import glob
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 import lpips
-from os.path import join as osp
+import os.path as osp
 import argparse
 import pandas as pd
 import contextual_loss as cl
@@ -446,7 +448,7 @@ def score_from_method_for_dataset(my_scorer,
     examples = os.listdir(input_path)
     for i in range(len(examples)):
         # ref path
-        ref_path = osp(input_path, examples[i], 'rgba.png') 
+        ref_path = osp(input_path, examples[i], '*ref*') 
         # compare entire folder for clip
         print(pred_path,'*'+examples[i]+'*', result_folder, f'*{rgb_name}*')
         exit(0)
@@ -467,30 +469,38 @@ def score_from_method_for_dataset(my_scorer,
 
 
 # results organization 2
-def score_from_my_method_for_dataset(my_scorer,
-                                  input_path, dataset,
-                                  score_type='clip'
-                                  ):  # psnr, lpips
+
+def score_from_my_method_for_dataset(my_scorer, input_path, dataset, score_type='clip'):  # psnr, lpips
     scores = {}
     final_res = 0
-    input_path = osp(input_path, dataset)
-    ref_path = glob.glob(osp(input_path, "*_rgba.png"))
-    novel_view = [osp(input_path, '%d.png' % i) for i in range(120)]
-    # print(ref_path)
-    # print(novel_view)
-    for i in tqdm(range(120)):
-        if os.path.exists(osp(input_path, '%d_color.png' % i)):
+    # Corrected the call to osp.join
+    input_path = osp.join(input_path, dataset)
+    
+    ref_path = glob.glob(osp.join(input_path, "*ref*"))
+    novel_view = sorted(glob.glob(osp.join(input_path, 'frame_*.png')))
+    num_frames = len(novel_view)
+
+    for i in tqdm(range(num_frames)):
+        color_image_path = osp.join(input_path, '%d_color.png' % i)
+        if os.path.exists(color_image_path):
             continue
         img = cv2.imread(novel_view[i])
+        if img is None:
+            print(f"Warning: Could not read image {novel_view[i]}")
+            continue
+
         H = img.shape[0]
         img = img[:, :H]
-        cv2.imwrite(osp(input_path, '%d_color.png' % i), img)
-    if score_type == 'clip' or score_type == 'cx':
-        novel_view = [osp(input_path, '%d_color.png' % i) for i in range(120)]
+        cv2.imwrite(color_image_path, img)
+
+    if score_type in ['clip', 'cx']:
+        novel_view = [osp.join(input_path, '%d_color.png' % i) for i in range(num_frames)]
     else:
-        novel_view = [osp(input_path, '%d_color.png' % i) for i in range(1)]
+        novel_view = [osp.join(input_path, '%d_color.png' % i) for i in range(num_frames)]
+    
     print(novel_view)
     scores['%s_average' % dataset] = my_scorer.score_gt(ref_path, novel_view)
+    
     return scores
 
 if __name__ == "__main__":

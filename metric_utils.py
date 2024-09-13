@@ -117,7 +117,9 @@ class CLIP(nn.Module):
         for img_path in img_list:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
             # print(img_path)
-            if img.shape[2] == 4:  # Handle BGRA images
+            channels = cv2.split(img)
+            if len(channels) == 4:   # Handle BGRA images
+                print("case1")
                 alpha = img[:, :, 3]  # Extract alpha channel
                 img = cv2.cvtColor(img,cv2.COLOR_BGRA2RGB)  # Convert BGRA to BGR
                 img[np.where(alpha == 0)] = [

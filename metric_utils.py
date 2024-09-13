@@ -189,7 +189,8 @@ class LPIPSMeter:
         for img_path in img_list:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
 
-            if img.shape[2] == 4:  # Handle BGRA images
+            channels = cv2.split(img)
+            if len(channels) == 4: # Handle BGRA images
                 alpha = img[:, :, 3]  # Extract alpha channel
                 img = cv2.cvtColor(img,
                                    cv2.COLOR_BGRA2BGR)  # Convert BGRA to BGR
@@ -271,7 +272,8 @@ class CXMeter:
         for img_path in img_list:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
 
-            if img.shape[2] == 4:  # Handle BGRA images
+            channels = cv2.split(img)
+            if len(channels) == 4:  # Handle BGRA images
                 alpha = img[:, :, 3]  # Extract alpha channel
                 img = cv2.cvtColor(img,
                                    cv2.COLOR_BGRA2BGR)  # Convert BGRA to BGR
@@ -330,7 +332,8 @@ class PSNRMeter:
         for img_path in img_list:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
 
-            if img.shape[2] == 4:  # Handle BGRA images
+            channels = cv2.split(img)
+            if len(channels) == 4:  # Handle BGRA images
                 alpha = img[:, :, 3]  # Extract alpha channel
                 img = cv2.cvtColor(img,
                                    cv2.COLOR_BGRA2BGR)  # Convert BGRA to BGR

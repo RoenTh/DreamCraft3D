@@ -27,14 +27,14 @@ def load_model(superres):
     
 def superres_4x(image, model, prompt):
     low_res_img = image.resize((256, 256))
-    model.to('cuda:1')
+    model.to('cuda:0')
     result = model(prompt=prompt, image=low_res_img).images[0]
     return result
 
 
 def img_to_mv(image_path, model):
     cond = Image.open(image_path)
-    model.to('cuda:1')
+    model.to('cuda:0')
     result = model(cond, num_inference_steps=75).images[0]
     return result
 

@@ -1,3 +1,4 @@
+```bash
 # Install the dependencies
 
 !python3 -m virtualenv venv

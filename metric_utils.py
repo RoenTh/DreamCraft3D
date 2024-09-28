@@ -141,19 +141,47 @@ class CLIP(nn.Module):
         # images = images.astype(np.float32)
 
         return images
-
+    
     def score_from_path(self, img1_path, img2_path):
         img1, img2 = self.read_img_list(img1_path), self.read_img_list(img2_path)
-        img1 = np.squeeze(img1)
-        img2 = np.squeeze(img2)
-        # plt.imshow(img1)
-        # plt.show()
-        # plt.imshow(img2)
-        # plt.show()
-
+    
+        # Ensure that we only have a single image in img1 and img2
+        if img1.shape[0] > 1:
+            img1 = img1[0]  # Take the first image in the batch if there are multiple
+        if img2.shape[0] > 1:
+            img2 = img2[0]
+    
+        # Handle the case where the images are incorrectly stacked (e.g., (2, 224, 224, 3))
+        if img1.ndim == 4 and img1.shape[0] == 1:  # If it has a batch dimension
+            img1 = img1[0]  # Remove the batch dimension
+        if img2.ndim == 4 and img2.shape[0] == 1:  # If it has a batch dimension
+            img2 = img2[0]
+    
+        # Check and handle RGBA images by converting to RGB
+        if img1.ndim == 3 and img1.shape[-1] == 4:
+            img1 = img1[:, :, :3]  # Convert RGBA to RGB
+        if img2.ndim == 3 and img2.shape[-1] == 4:
+            img2 = img2[:, :, :3]  # Convert RGBA to RGB
+    
+        # Convert images to PIL format for further processing
+        if img1.ndim == 3:
+            img1 = Image.fromarray(np.uint8(img1))
+        else:
+            raise ValueError(f"Unexpected dimensions for img1: {img1.shape}")
+    
+        if img2.ndim == 3:
+            img2 = Image.fromarray(np.uint8(img2))
+        else:
+            raise ValueError(f"Unexpected dimensions for img2: {img2.shape}")
+    
+        # Use the to_tensor() transformation
         img1, img2 = self.to_tensor(img1), self.to_tensor(img2)
-        # print("img1 to tensor ",img1)
         return self.score_from_feature(img1, img2)
+
+
+
+
+
 
 
 def numpy_to_torch(images):
